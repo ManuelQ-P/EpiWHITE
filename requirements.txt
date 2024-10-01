@@ -16,7 +16,12 @@ torch>=1.8.0  # see https://pytorch.org/get-started/locally (recommended)
 torchvision>=0.9.0
 tqdm>=4.66.3
 ultralytics>=8.2.34  # https://ultralytics.com
-# protobuf<=3.20.1  # https://github.com/ultralytics/yolov5/issues/8012
+
+# Additional requirements for color and shape detection -----------------------
+scikit-image>=0.19.0  # For shape detection and image processing
+imutils>=0.5.4  # Additional utilities for image processing
+colorspacious>=1.1.0  # For advanced color detection (optional)
+mahotas>=1.4.13  # Additional image processing and feature extraction (optional)
 
 # Logging ---------------------------------------------------------------------
 # tensorboard>=2.4.1
