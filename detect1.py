@@ -172,6 +172,7 @@ def run(
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if save_crop else im0  # for save_crop
             annotator = Annotator(im0, line_width=line_thickness, example=str(names))
+            
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
@@ -179,36 +180,21 @@ def run(
                 # Print results
                 for c in det[:, 5].unique():
                     n = (det[:, 5] == c).sum()  # detections per class
-                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "
 
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
                     c = int(cls)  # integer class
                     label = names[c] if hide_conf else f"{names[c]}"
                     confidence = float(conf)
-                    confidence_str = f"{confidence:.2f}"
-
-                    if save_csv:
-                        write_to_csv(p.name, label, confidence_str)
-
-                    if save_txt:  # Write to file
-                        if save_format == 0:
-                            coords = (
-                                (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
-                            )  # normalized xywh
-                        else:
-                            coords = (torch.tensor(xyxy).view(1, 4) / gn).view(-1).tolist()  # xyxy
-                        line = (cls, *coords, conf) if save_conf else (cls, *coords)  # label format
-                        with open(f"{txt_path}.txt", "a") as f:
-                            f.write(("%g " * len(line)).rstrip() % line + "\n")
 
                     # Get bounding box and object region
                     x1, y1, x2, y2 = map(int, xyxy)
                     obj_img = im0[y1:y2, x1:x2]
-                    
+
                     # Detect shape
                     shape_contours, _ = cv2.findContours(cv2.cvtColor(obj_img, cv2.COLOR_BGR2GRAY), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    shape = "undetected"
+                    shape = "unidentified"
                     if len(shape_contours) > 0:
                         shape = detect_shape(shape_contours[0])
                     
@@ -222,7 +208,10 @@ def run(
                     size_text = f"Size: {obj_width}x{obj_height}"
                     
                     # Annotate the image with shape, color, and size information
-                    annotator.box_label(xyxy, f"{label} {size_text}, {shape}, {color_text}", color=colors(c, True))
+                    annotator.box_label(xyxy, f"{label} {confidence:.2f}, {size_text}, {shape}, {color_text}", color=colors(c, True))
+
+                    # Update the summary string with the object details, including color and shape
+                    s += f"{label} {confidence:.2f}, Shape: {shape}, {color_text}; "
 
                     if save_crop:
                         save_one_box(xyxy, imc, file=save_dir / "crops" / names[c] / f"{p.stem}.jpg", BGR=True)
@@ -256,10 +245,11 @@ def run(
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
                     vid_writer[i].write(im0)
 
-        # Print time (inference-only)
-        LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
+    # Print the final summary after all images have been processed
+    LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
     # Print results
+
     t = tuple(x.t / seen * 1e3 for x in dt)  # speeds per image
     LOGGER.info(f"Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}" % t)
     if save_txt or save_img:
